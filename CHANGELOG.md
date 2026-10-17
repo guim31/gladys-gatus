@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-17
+
 ### Added
 
 - One device per Gatus endpoint: online, response time, uptime over 24 hours
@@ -25,3 +27,6 @@ the notes of the version's GitHub Release.
 - Basic login (`security.basic`), refresh interval from 30 seconds to 5
   minutes, "Test the connection" action.
 - Texts and documentation in English, French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-gatus/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-gatus/releases/tag/v1.0.0
