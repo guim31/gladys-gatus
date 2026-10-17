@@ -1,61 +1,156 @@
-# Demo Devices Template
+# Gatus
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+[Gatus](https://github.com/TwiN/gatus) watches your services (websites, APIs,
+DNS, ports, certificates) and shows them on a status page. This integration
+brings its endpoints into Gladys: each endpoint becomes a device with its
+state, response time and uptime, scenes react when one goes down or comes
+back, and a dashboard widget shows them by group.
 
-## What you get
+Gladys reads Gatus: it does not check your services itself. Everything stays
+on your network (no cloud).
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+Tested against a real Gatus in Docker (build of 16 October 2026): endpoints
+up, failing and stopped, groups, an external endpoint, basic login. Feedback
+welcome on [the issues](https://github.com/guim31/gladys-gatus/issues).
 
-## Configuration
+## What you need
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+- Gladys Assistant 5.1.0 or later.
+- A Gatus reachable from Gladys, usually on port 8080.
+- If Gatus asks for a login: the user and password of its `security.basic`
+  section. Gatus protected by OIDC is not supported.
+- To push results from Gladys (optional): an external endpoint in Gatus and
+  its token.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+## Getting started
 
-## Actions
+### 1. Find the address of Gatus
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+It is the address of its status page, for example `http://192.168.1.2:8080`.
+A URL copied from the browser works too (`…/endpoints/core_api`): the
+integration keeps the start of it.
 
-## Scenes
+### 2. Configure the integration
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+In Gladys, open the integration and fill in:
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+- **Gatus address**.
+- **User** and **Password**: only if Gatus asks for a login. The password in
+  clear, not the bcrypt hash of the Gatus configuration.
+- **External endpoints token**: only for the action "Push a result to Gatus".
+- **Refresh interval**: 30 seconds to 5 minutes (1 minute by default). One
+  request each time, plus two requests per endpoint for the uptimes every
+  5 minutes.
+- **Failed checks before down**: how many failed checks of Gatus in a row
+  make an endpoint down (2 by default). 1 reacts at the first failure, as the
+  Gatus page shows it; more avoids false alarms on a service that hiccups.
+  Choose a refresh interval close to the interval of your Gatus endpoints, so
+  that no result is missed.
+- **Language of the names**: language of the feature names and of the scene
+  results (French by default).
+
+Then click **Test the connection**: it reads Gatus and counts the endpoints.
+
+### 3. Add the endpoints
+
+Open the **Discover** tab of the integration: one device per Gatus endpoint,
+and a "Gatus" device for the whole instance. Add the ones you want to follow.
+The scene triggers and the widget work for every endpoint, added or not.
+
+An endpoint renamed or moved to another group in Gatus gets a new key, so a
+new device: delete the old one.
+
+## The devices
+
+Each endpoint:
+
+- **Online**: yes when the last check of Gatus succeeded, no when it is down
+  (see "Failed checks before down"). Green or red badge, a Yes/No condition
+  in scenes.
+- **Response time**: the duration of the last successful check, in
+  milliseconds. Sent at most every 5 minutes, at once when the state changes.
+- **Uptime 24 h** and **Uptime 7 days**: the share of successful checks, as
+  computed by Gatus, in percent.
+
+The "Gatus" device:
+
+- **Endpoints down** and **Endpoints in total**.
 
 ## Dashboard
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+The **Gatus** widget shows three tiles (endpoints down, up, average uptime
+over 24 hours) and a list: with ten endpoints or fewer, one row per endpoint,
+the ones down first, with their group, response time and uptime; beyond, one
+row per Gatus group ("Down: 1 / 8"). In its settings, choose a group, or
+endpoints added to Gladys. The **Refresh** button reads Gatus at once.
+
+## Scenes
+
+### Triggers
+
+- **An endpoint goes down**: an endpoint fails its checks, as many times in a
+  row as set in the configuration. Variables: endpoint name, group, what
+  failed (the failed conditions, or the error).
+- **An endpoint is back up**: an endpoint that was down passes its check
+  again. Variables: endpoint name, group, outage length in minutes.
+
+Both can be limited to some endpoints. No event is sent at the first reading:
+only real changes. An endpoint that went down while Gladys was restarting is
+still announced, once.
+
+### Actions
+
+- **State of an endpoint**: online or not, state in words, response time,
+  uptime over 24 hours, what failed, and a ready-made sentence such as
+  "NAS: Down, 97.5 % over 24 h. [STATUS] (502) == 200".
+- **Count the endpoints down**: how many are down and in total, in Gatus or
+  in one group, and the names of the ones down.
+- **Push a result to Gatus**: reports a success or a failure (with its
+  message) to an external endpoint of Gatus, given by its key
+  (`group_name`, as in the address of its Gatus page) or its name. Gatus keeps
+  the history and sends its own alerts. The external endpoint is declared in
+  the Gatus configuration:
+
+```yaml
+external-endpoints:
+  - name: nightly-job
+    group: backups
+    token: 'a-long-random-token'
+```
+
+Put the same token in the integration configuration (several external
+endpoints can share it).
+
+### Scene ideas
+
+- **An endpoint goes down** → send a message with the name of the endpoint and
+  what failed.
+- Every evening, **Count the endpoints down** → if more than zero, a message
+  with the names.
+- At the end of a Gladys scene that does a backup or a check of your own,
+  **Push a result to Gatus**: Gatus shows it like any other service, and
+  alerts when it stops running.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"Gatus does not answer"**: check the address and the port from the
+  machine of Gladys, and that a firewall does not block it.
+- **"Gatus asks for a login"**: fill in the user and password of the
+  `security.basic` section. With OIDC, the API cannot be read.
+- **"The address redirects"**: enter the `https://` address directly.
+- **"Certificate refused"**: a self-signed certificate is not accepted; use
+  the `http://` address on your network.
+- **An endpoint stays without value**: it has no result yet (a new endpoint,
+  or an external endpoint that never received one).
+- **"No external endpoint with this key"**: the key is `group_name`, lower
+  case, spaces and dots turned into dashes; an endpoint only appears in Gatus
+  after its first result.
+
+## Limits
+
+- Gladys reads Gatus at the chosen interval: an outage shorter than it, or
+  than the threshold, may not be seen.
+- The uptimes come from Gatus, which counts them per hour.
+- Suites, announcements and the incidents of Gatus are not read.
+- Gatus protected by OIDC is not supported.
+- Not affiliated with Gatus or its author.

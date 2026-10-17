@@ -30,6 +30,19 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- the **user and password** of the Gatus basic login and the **token** of its
+  external endpoints, stored by Gladys in the integration configuration
+  (never written to `/data`, never logged); the credentials are only sent, in
+  the `Authorization` header, to the address configured, the token only with
+  the "Push a result to Gatus" action, and redirects are not followed so they
+  never reach another host;
+- `/data/gatus-state.json`: the last state of each endpoint and since when
+  (no secret);
+- network: HTTP(S) requests to the Gatus address, nothing else; no port is
+  opened.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and Gatus itself.

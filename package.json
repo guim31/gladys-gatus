@@ -1,8 +1,8 @@
 {
-  "name": "gladys-integration-template-js",
+  "name": "gladys-gatus",
   "version": "1.0.0",
   "private": true,
-  "description": "Official starter template to build an external integration for Gladys Assistant with the JavaScript SDK.",
+  "description": "Gatus endpoint monitoring in Gladys Assistant: one device per endpoint, scene triggers when one goes down or comes back, a status widget.",
   "type": "module",
   "main": "index.js",
   "scripts": {

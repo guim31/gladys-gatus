@@ -31,16 +31,20 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only: src/app.js registers the handlers before connect()
+src/app.js                        every SDK handler -> the hub (also used by the tests)
+src/hub.js                        reading timer, uptimes, states, transitions -> scene events, views
+src/devices.js                    one device per endpoint + the instance device: features, names, values
+src/gatus/client.js               Gatus REST API (fetch), errors by kind, platform ids, normalization
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget `gatus` (manifest `widgets`)
+src/texts.js                      connection, error, state, report and action texts (4 languages)
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/store.js, src/problems.js     /data/gatus-state.json; one log line per repeated failure
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+                                  and helpers/fakeGatus.js (checked against test/fixtures/gatus)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +74,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, widget content, feature names, scene outputs, manifest texts, and
+  `docs/en.md`, `docs/fr.md`, `docs/de.md`, `docs/es.md`, kept in sync
+  (`test/i18n.test.js` checks the languages and the doc sections).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -197,6 +203,45 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
 - Les filtres de scène ne font qu'égalité et appartenance : un seuil reste le travail d'un capteur.
 - **Les clés de widgets, de déclencheurs et d'actions sont figées une fois publiées.**
 - `gladys_version` `>=5.1.0` dès qu'il y a widgets, déclencheurs ou actions de scène.
+
+## Gatus (propre à ce dépôt)
+
+- **API** (vérifiée sur l'image `twinproduction/gatus` du 16/10/2026, commit af1ae0d) :
+  `GET /api/v1/endpoints/statuses?page=1&pageSize=N` rend un **tableau** de points d'accès
+  (`name`, `group` absent si vide, `key`, `results`), chacun avec ses **N résultats les plus
+  récents, du plus ancien au plus récent** ; `pageSize` plafonné à 100. `duration` est en
+  **nanosecondes**. Un résultat d'échec réseau n'a pas de `status` ; un résultat poussé sur un
+  point d'accès externe n'a ni `status`, ni `conditionResults`, ni `hostname`.
+- **Disponibilités** : `GET /api/v1/endpoints/{key}/uptimes/{1h|24h|7d|30d}` (sans `badge.svg`)
+  rend du **texte brut**, un ratio de 0 à 1 (`1.000000`). Même chose pour `response-times/…`
+  (moyenne en ms, entier). Les badges SVG sont à côté (`…/badge.svg`). 404 sur une clé
+  inconnue. Gatus les compte par heure : lues toutes les 5 minutes seulement.
+- **Clé** : `groupe_nom`, en minuscules, `/ _ , . # + &` et espaces changés en `-` (un `_` en
+  tête quand il n'y a pas de groupe : `_broken`). Elle change si l'utilisateur renomme le point
+  d'accès ou change son groupe : nouvel appareil, assumé et documenté. L'identifiant de plateforme
+  est la clé quand elle est un identifiant simple (`[a-z0-9_-]`, avec un `_`), sinon un hash
+  préfixé `h` (accents, `:`), sans collision possible entre les deux formes.
+- **État** : « en panne » quand les `failure_threshold` derniers résultats ont tous échoué (comme
+  le `failure-threshold` des alertes de Gatus), « en ligne » dès que le dernier réussit, inchangé
+  entre les deux. On demande donc `pageSize = failure_threshold` à chaque lecture. Un point
+  d'accès sans résultat (externe jamais alimenté, ou tout neuf) : rien n'est publié.
+- **Points d'accès externes** : `POST /api/v1/endpoints/{key}/external?success=…&error=…`,
+  `Authorization: Bearer <token>` ; 401 `invalid token`, 404 `not found` (clé inconnue **ou**
+  point d'accès non externe). Un externe n'apparaît dans `statuses` qu'après son premier
+  résultat. La route n'est pas soumise à `security.basic`.
+- **Authentification** : `security.basic` → en-tête `Basic` ; OIDC → 401 sur l'API, non pris en
+  charge (pas de navigateur dans le conteneur), dit dans le message d'erreur.
+- **Cache de 10 s** sur `statuses` (vérifié : un résultat poussé n'apparaît qu'après ~10 s) :
+  après « Envoyer un résultat », le minuteur relit Gatus 11 s plus tard, pas tout de suite.
+- **Redémarrage de Gatus** (stockage en mémoire par défaut) : un point d'accès ne revient dans
+  `statuses` qu'avec son premier résultat. Un point d'accès absent garde donc son état sauvegardé
+  (`missingSince`) et n'est oublié qu'au bout de 24 h, sinon son « est rétabli » se perdrait.
+- Changement d'adresse de Gatus : l'état sauvegardé est vidé (des clés identiques sur l'autre
+  serveur ne sont pas la même chose).
+- Les fonctionnalités « volatiles » (temps de réponse, disponibilités) sont étalées : un
+  cinquième des points d'accès à chaque fois, pour rester loin des 300 états par minute.
+- Pas de transition depuis « inconnu » : le premier résultat d'un point d'accès fixe son état
+  sans événement.
 
 ## Store
 

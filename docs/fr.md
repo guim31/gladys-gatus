@@ -1,67 +1,171 @@
-# Template de démonstration
+# Gatus
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+[Gatus](https://github.com/TwiN/gatus) surveille vos services (sites web, API,
+DNS, ports, certificats) et les affiche sur une page de statut. Cette
+intégration amène ses points d'accès (« endpoints ») dans Gladys : chacun
+devient un appareil avec son état, son temps de réponse et sa disponibilité,
+des scènes réagissent quand l'un tombe en panne ou revient, et un widget du
+tableau de bord les montre par groupe.
 
-## Ce que vous obtenez
+Gladys lit Gatus : elle ne teste pas vos services elle-même. Tout reste sur
+votre réseau (pas de cloud).
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+Testée contre un vrai Gatus en Docker (version du 16 octobre 2026) : points
+d'accès en ligne, en échec et arrêtés, groupes, point d'accès externe,
+connexion simple. Vos retours sont les bienvenus dans
+[les issues](https://github.com/guim31/gladys-gatus/issues).
 
-## Configuration
+## Ce qu'il faut
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+- Gladys Assistant 5.1.0 ou plus récent.
+- Un Gatus joignable depuis Gladys, en général sur le port 8080.
+- Si Gatus demande une connexion : l'utilisateur et le mot de passe de sa
+  section `security.basic`. Un Gatus protégé par OIDC n'est pas pris en
+  charge.
+- Pour envoyer des résultats depuis Gladys (facultatif) : un point d'accès
+  externe dans Gatus et son jeton.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Mise en route
 
-## Actions
+### 1. Trouver l'adresse de Gatus
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+C'est l'adresse de sa page de statut, par exemple `http://192.168.1.2:8080`.
+Une adresse copiée depuis le navigateur convient aussi
+(`…/endpoints/core_api`) : l'intégration n'en garde que le début.
 
-## Scènes
+### 2. Configurer l'intégration
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+Dans Gladys, ouvrez l'intégration et remplissez :
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+- **Adresse de Gatus**.
+- **Utilisateur** et **Mot de passe** : seulement si Gatus demande une
+  connexion. Le mot de passe en clair, pas l'empreinte bcrypt de la
+  configuration de Gatus.
+- **Jeton des points d'accès externes** : seulement pour l'action « Envoyer
+  un résultat à Gatus ».
+- **Intervalle de rafraîchissement** : de 30 secondes à 5 minutes (1 minute
+  par défaut). Une requête à chaque fois, plus deux requêtes par point
+  d'accès pour les disponibilités toutes les 5 minutes.
+- **Échecs avant la panne** : combien d'échecs consécutifs de Gatus font
+  passer un point d'accès en panne (2 par défaut). 1 réagit au premier échec,
+  comme l'affiche la page de Gatus ; davantage évite les fausses alertes sur
+  un service qui hoquette. Choisissez un intervalle de rafraîchissement
+  proche de celui de vos points d'accès Gatus, pour ne manquer aucun
+  résultat.
+- **Langue des noms** : langue des noms des fonctionnalités et des résultats
+  de scène (français par défaut).
+
+Cliquez ensuite sur **Tester la connexion** : l'intégration lit Gatus et
+compte les points d'accès.
+
+### 3. Ajouter les points d'accès
+
+Ouvrez l'onglet **Découverte** de l'intégration : un appareil par point
+d'accès Gatus, et un appareil « Gatus » pour toute l'instance. Ajoutez ceux à
+suivre. Les déclencheurs de scène et le widget fonctionnent pour tous les
+points d'accès, ajoutés ou non.
+
+Un point d'accès renommé ou changé de groupe dans Gatus reçoit une nouvelle
+clé, donc un nouvel appareil : supprimez l'ancien.
+
+## Les appareils
+
+Chaque point d'accès :
+
+- **En ligne** : oui quand le dernier test de Gatus a réussi, non quand il
+  est en panne (voir « Échecs avant la panne »). Pastille verte ou rouge,
+  condition Oui/Non dans les scènes.
+- **Temps de réponse** : la durée du dernier test réussi, en millisecondes.
+  Envoyé au plus toutes les 5 minutes, aussitôt quand l'état change.
+- **Disponibilité 24 h** et **Disponibilité 7 jours** : la part de tests
+  réussis, calculée par Gatus, en pourcentage.
+
+L'appareil « Gatus » :
+
+- **Points d'accès en panne** et **Points d'accès au total**.
 
 ## Tableau de bord
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+Le widget **Gatus** montre trois tuiles (points d'accès en panne, en ligne,
+disponibilité moyenne sur 24 heures) et une liste : jusqu'à dix points
+d'accès, une ligne par point d'accès, ceux en panne d'abord, avec leur
+groupe, leur temps de réponse et leur disponibilité ; au-delà, une ligne par
+groupe Gatus (« En panne : 1 / 8 »). Dans ses réglages, choisissez un groupe,
+ou des points d'accès ajoutés à Gladys. Le bouton **Actualiser** relit Gatus
+tout de suite.
+
+## Scènes
+
+### Déclencheurs
+
+- **Un point d'accès tombe en panne** : un point d'accès échoue à ses tests,
+  autant de fois de suite que réglé dans la configuration. Variables : nom du
+  point d'accès, groupe, ce qui a échoué (les conditions en échec, ou
+  l'erreur).
+- **Un point d'accès est rétabli** : un point d'accès en panne réussit de
+  nouveau son test. Variables : nom du point d'accès, groupe, durée de la
+  panne en minutes.
+
+Les deux peuvent être limités à certains points d'accès. Aucun événement à la
+première lecture : seulement les vrais changements. Un point d'accès tombé en
+panne pendant un redémarrage de Gladys est quand même annoncé, une fois.
+
+### Actions
+
+- **État d'un point d'accès** : en ligne ou non, état en toutes lettres,
+  temps de réponse, disponibilité sur 24 heures, ce qui a échoué, et une
+  phrase toute prête comme « NAS : En panne, 97,5 % sur 24 h. [STATUS] (502)
+  == 200 ».
+- **Compter les points d'accès en panne** : combien sont en panne et au
+  total, dans Gatus ou dans un groupe, et les noms de ceux en panne.
+- **Envoyer un résultat à Gatus** : signale un succès ou un échec (avec son
+  message) à un point d'accès externe de Gatus, donné par sa clé
+  (`groupe_nom`, comme dans l'adresse de sa page Gatus) ou par son nom. Gatus
+  en garde l'historique et envoie ses propres alertes. Le point d'accès
+  externe se déclare dans la configuration de Gatus :
+
+```yaml
+external-endpoints:
+  - name: nightly-job
+    group: backups
+    token: 'un-long-jeton-aleatoire'
+```
+
+Mettez le même jeton dans la configuration de l'intégration (plusieurs points
+d'accès externes peuvent le partager).
+
+### Idées de scènes
+
+- **Un point d'accès tombe en panne** → envoyer un message avec le nom du
+  point d'accès et ce qui a échoué.
+- Chaque soir, **Compter les points d'accès en panne** → si plus de zéro, un
+  message avec les noms.
+- À la fin d'une scène Gladys qui fait une sauvegarde ou une vérification à
+  vous, **Envoyer un résultat à Gatus** : Gatus l'affiche comme n'importe quel
+  service, et alerte quand elle ne tourne plus.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« Gatus ne répond pas »** : vérifiez l'adresse et le port depuis la
+  machine de Gladys, et qu'un pare-feu ne bloque rien.
+- **« Gatus demande une connexion »** : renseignez l'utilisateur et le mot de
+  passe de la section `security.basic`. Avec OIDC, l'API ne peut pas être
+  lue.
+- **« L'adresse redirige »** : saisissez directement l'adresse en
+  `https://`.
+- **« Certificat refusé »** : un certificat auto-signé n'est pas accepté ;
+  utilisez l'adresse en `http://` sur votre réseau.
+- **Un point d'accès reste sans valeur** : il n'a pas encore de résultat (un
+  nouveau point d'accès, ou un point d'accès externe qui n'en a jamais reçu).
+- **« Aucun point d'accès externe avec cette clé »** : la clé est
+  `groupe_nom`, en minuscules, espaces et points changés en tirets ; un point
+  d'accès n'apparaît dans Gatus qu'après son premier résultat.
+
+## Limites
+
+- Gladys lit Gatus à l'intervalle choisi : une panne plus courte que lui, ou
+  que le seuil, peut passer inaperçue.
+- Les disponibilités viennent de Gatus, qui les compte par heure.
+- Les suites, annonces et incidents de Gatus ne sont pas lus.
+- Un Gatus protégé par OIDC n'est pas pris en charge.
+- Sans lien avec Gatus ni son auteur.
