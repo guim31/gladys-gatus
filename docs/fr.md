@@ -90,7 +90,7 @@ Le widget **Gatus** montre trois tuiles (points d'accès en panne, en ligne,
 disponibilité moyenne sur 24 heures) et une liste : jusqu'à dix points
 d'accès, une ligne par point d'accès, ceux en panne d'abord, avec leur
 groupe, leur temps de réponse et leur disponibilité ; au-delà, une ligne par
-groupe Gatus (« 1 en panne / 8 »). Dans ses réglages, choisissez un groupe,
+groupe Gatus (« En panne : 1 / 8 »). Dans ses réglages, choisissez un groupe,
 ou des points d'accès ajoutés à Gladys. Le bouton **Actualiser** relit Gatus
 tout de suite.
 

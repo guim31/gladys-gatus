@@ -20,7 +20,15 @@
 import { WIDGET_COLORS } from '@gladysassistant/integration-sdk';
 import { responseTimeOf } from './devices.js';
 import { WIDGET_KEY } from './hub.js';
-import { ERROR_TEXT, NO_GROUP, STATE_TEXT, formatNumber, pick } from './texts.js';
+import {
+  CONNECTION_TEXT,
+  ERROR_TEXT,
+  NO_GROUP,
+  STATE_TEXT,
+  formatNumber,
+  labelled,
+  pick,
+} from './texts.js';
 
 // Action key of the button: permanent once published.
 export const ACTIONS = Object.freeze({ REFRESH: 'refresh' });
@@ -43,8 +51,8 @@ export const TEXT = {
   down: { en: 'Down', fr: 'En panne', de: 'Ausgefallen', es: 'Caídos' },
   up: { en: 'Up', fr: 'En ligne', de: 'Online', es: 'En línea' },
   uptime: { en: 'Uptime 24 h', fr: 'Dispo. 24 h', de: 'Verfügbar 24 h', es: 'Dispon. 24 h' },
-  groupDown: { en: 'down', fr: 'en panne', de: 'ausgefallen', es: 'caídos' },
-  groupUp: { en: 'up', fr: 'en ligne', de: 'online', es: 'en línea' },
+  groupDown: { en: 'Down', fr: 'En panne', de: 'Ausgefallen', es: 'Caídos' },
+  groupUp: { en: 'Up', fr: 'En ligne', de: 'Online', es: 'En línea' },
   more: { en: 'Others', fr: 'Autres', de: 'Weitere', es: 'Otros' },
   refresh: { en: 'Refresh', fr: 'Actualiser', de: 'Aktualisieren', es: 'Actualizar' },
   refreshed: {
@@ -125,10 +133,12 @@ function groupRows(endpoints, language) {
       return {
         down,
         label: fit(group || pick(NO_GROUP, language), 40),
-        value:
-          down > 0
-            ? `${down} ${pick(TEXT.groupDown, language)} / ${list.length}`
-            : `${up}/${list.length} ${pick(TEXT.groupUp, language)}`,
+        // "Down: 1 / 8", "Up: 8 / 8": no plural to agree.
+        value: labelled(
+          pick(down > 0 ? TEXT.groupDown : TEXT.groupUp, language),
+          `${down > 0 ? down : up} / ${list.length}`,
+          language,
+        ),
         ...ROW_STYLE[down > 0 ? 'down' : up === list.length ? 'up' : 'unknown'],
       };
     })
@@ -138,7 +148,7 @@ function groupRows(endpoints, language) {
 
 async function get(hub, { settings, language = 'en' }) {
   if (!hub.client) {
-    return message(TEXT.pick, language);
+    return message(hub.config.url === null ? CONNECTION_TEXT.invalidUrl : TEXT.pick, language);
   }
   const endpoints = sortEndpoints(selectEndpoints(hub, settings));
   if (endpoints.length === 0 && !hub.error) {

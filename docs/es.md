@@ -87,7 +87,7 @@ El dispositivo «Gatus»:
 El widget **Gatus** muestra tres mosaicos (endpoints caídos, en línea,
 disponibilidad media en 24 horas) y una lista: hasta diez endpoints, una fila
 por endpoint, los caídos primero, con su grupo, tiempo de respuesta y
-disponibilidad; por encima, una fila por grupo de Gatus («1 caídos / 8»). En
+disponibilidad; por encima, una fila por grupo de Gatus («Caídos: 1 / 8»). En
 sus ajustes, elija un grupo, o endpoints añadidos a Gladys. El botón
 **Actualizar** lee Gatus de inmediato.
 

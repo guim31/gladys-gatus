@@ -89,7 +89,7 @@ Das Widget **Gatus** zeigt drei Kacheln (ausgefallene Endpunkte, online,
 durchschnittliche Verfügbarkeit über 24 Stunden) und eine Liste: bis zu zehn
 Endpunkte eine Zeile pro Endpunkt, die ausgefallenen zuerst, mit Gruppe,
 Antwortzeit und Verfügbarkeit; darüber eine Zeile pro Gatus-Gruppe
-(„1 ausgefallen / 8“). Wähle in seinen Einstellungen eine Gruppe oder in
+(„Ausgefallen: 1 / 8“). Wähle in seinen Einstellungen eine Gruppe oder in
 Gladys angelegte Endpunkte. Die Schaltfläche **Aktualisieren** liest Gatus
 sofort.
 

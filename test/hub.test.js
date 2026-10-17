@@ -93,17 +93,22 @@ test('a hundred endpoints read every 30 seconds stay under 300 states per minute
   const world = await createWorld({ gatus });
   t.after(() => world.app.stop());
   await createDevices(world);
-  const start = world.fake.states.length;
-  for (let step = 1; step <= 20; step += 1) {
+  const perStep = [];
+  for (let step = 1; step <= 40; step += 1) {
     for (const item of gatus.endpoints) {
       item.results.push(result(true, { duration: (step % 7) * 1_000_000 + 1_000_000 }));
+      // Every uptime changes at each reading of the uptimes.
       item.uptimes['24h'] = 1 - step / 10_000;
+      item.uptimes['7d'] = 1 - step / 20_000;
     }
+    const before = world.fake.states.length;
     world.clock.advance(30_000);
     await world.hub.pollNow();
+    perStep.push(world.fake.states.length - before);
   }
-  const perMinute = (world.fake.states.length - start) / 10;
-  assert.ok(perMinute < 300, `${perMinute} states per minute`);
+  // Any minute: two readings 30 seconds apart.
+  const worst = Math.max(...perStep.slice(1).map((count, i) => count + perStep[i]));
+  assert.ok(worst < 150, `${worst} states in a minute`);
 });
 
 test('"an endpoint goes down" after the threshold, "is back up" with the outage, for any endpoint', async (t) => {
@@ -128,7 +133,8 @@ test('"an endpoint goes down" after the threshold, "is back up" with the outage,
   );
   assert.equal(events(world, TRIGGERS.DOWN)[0].data.group, 'home');
   assert.equal(events(world, TRIGGERS.DOWN)[0].data.error, '[STATUS] (503) == 200');
-  assert.equal(events(world, TRIGGERS.UP)[0].data.downtime_minutes, 90);
+  // Counted from the first failed result (10:00), not from its detection.
+  assert.equal(events(world, TRIGGERS.UP)[0].data.downtime_minutes, 91);
 });
 
 test('no event at the first read, nor for an endpoint without result yet', async (t) => {
@@ -168,6 +174,43 @@ test('an endpoint that went down during a restart is announced once, the outage 
   assert.deepEqual(
     third.fake.sceneEvents.map((e) => [e.key, e.data.downtime_minutes]),
     [[TRIGGERS.UP, 10]],
+  );
+});
+
+test('Gatus restarted: an endpoint missing from one answer keeps its outage, forgotten after a day', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.gatus.push('NAS', false);
+  await world.hub.pollNow();
+  const nas = world.gatus.endpoints.splice(2, 1)[0];
+  world.clock.advance(MINUTE);
+  await world.hub.pollNow();
+  world.gatus.endpoints.push(nas);
+  nas.results = [result(true)];
+  world.clock.advance(MINUTE);
+  await world.hub.pollNow();
+  assert.deepEqual(
+    world.fake.sceneEvents.map((e) => e.key),
+    [TRIGGERS.DOWN, TRIGGERS.UP],
+  );
+  world.gatus.endpoints.pop();
+  await world.hub.pollNow();
+  world.clock.advance(24 * 3600_000);
+  await world.hub.pollNow();
+  assert.equal(world.hub.saved.endpoints[nas.key], undefined);
+});
+
+test('another Gatus address: the states saved for the previous one are dropped', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.gatus.push('NAS', false);
+  await world.hub.pollNow();
+  // The other server has a "home/NAS" too, up: not a recovery of the first one.
+  world.gatus.push('NAS', true);
+  await world.fake.configUpdated({ url: 'http://192.0.2.11:8080', language: 'en' });
+  assert.deepEqual(
+    world.fake.sceneEvents.map((e) => e.key),
+    [TRIGGERS.DOWN],
   );
 });
 
@@ -217,6 +260,8 @@ test('basic login: refused or missing is reported, right is read; no address say
   const wrong = await createWorld({ config: { url: 'ftp://x' } });
   t.after(() => wrong.app.stop());
   assert.match(wrong.fake.connectionStatus.message.en, /Address not understood/);
+  const widget = await wrong.fake.widgetGet(WIDGET_KEY, { language: 'en' });
+  assert.match(widget.data.content.components[0].text, /Address not understood/);
 });
 
 test('the uptimes are read every 5 minutes, and kept when a reading fails', async (t) => {
@@ -270,10 +315,19 @@ test('"State of an endpoint" and "Count the endpoints down", in the language of 
   assert.deepEqual(core.data.outputs, { down: 0, total: 2, names: '' });
   const unknown = await world.fake.sceneAction('get_endpoint_status', { device: 'nope' });
   assert.match(unknown.error, /pas un point d'accès Gatus/);
+  // An error of an older reading: the actions read Gatus again.
+  world.gatus.failure = 'down';
+  await world.hub.pollNow();
+  world.gatus.failure = null;
+  world.clock.advance(MINUTE);
+  const again = await world.fake.sceneAction('count_down_endpoints', {});
+  assert.equal(again.success, true, again.error);
 });
 
-test('"Push a result": by key or name, the token of the configuration, then Gatus read again', async (t) => {
+test('"Push a result": by key or name, the token of the configuration, read once the Gatus cache expired', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const world = await createWorld({
+    timers: true,
     config: { url: BASE, language: 'en', failure_threshold: '1', external_token: TOKEN },
   });
   t.after(() => world.app.stop());
@@ -289,7 +343,12 @@ test('"Push a result": by key or name, the token of the configuration, then Gatu
   });
   assert.equal(failed.success, true, failed.error);
   assert.deepEqual(world.gatus.get('Backups').results.at(-1).errors, ['disk full']);
-  // Read again at once: the failure is seen, and announced.
+  // Gatus caches its answer 10 s: the next read comes 11 s after the push.
+  assert.deepEqual(world.fake.sceneEvents, []);
+  t.mock.timers.tick(11_000);
+  for (let i = 0; i < 20; i += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
   assert.deepEqual(
     world.fake.sceneEvents.map((e) => [e.key, e.data.endpoint, e.data.error]),
     [[TRIGGERS.DOWN, 'Backups', 'disk full']],
@@ -299,6 +358,14 @@ test('"Push a result": by key or name, the token of the configuration, then Gatu
     result: 'success',
   });
   assert.match(missing.error, /no external endpoint with this key/);
+  world.gatus.endpoints.push(endpoint('Backups', 'other'));
+  world.clock.advance(MINUTE);
+  await world.hub.pollNow();
+  const ambiguous = await world.fake.sceneAction('push_external_result', {
+    endpoint: 'Backups',
+    result: 'success',
+  });
+  assert.match(ambiguous.error, /Several endpoints have this name/);
   await world.fake.configUpdated({ url: BASE, language: 'en', external_token: 'wrong' });
   const refused = await world.fake.sceneAction('push_external_result', {
     endpoint: 'jobs_backups',
@@ -377,9 +444,9 @@ test('the widget folds more than ten endpoints into one row per group', async (t
       .find((c) => c.type === 'status')
       .items.map((r) => [r.label, r.value]),
     [
-      ['databases', '1 en panne / 8'],
-      ['Sans groupe', '1/1 en ligne'],
-      ['web', '8/8 en ligne'],
+      ['databases', 'En panne : 1 / 8'],
+      ['Sans groupe', 'En ligne : 1 / 1'],
+      ['web', 'En ligne : 8 / 8'],
     ],
   );
 });

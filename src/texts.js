@@ -132,6 +132,12 @@ export const ACTION_TEXT = {
     de: 'Gib das Token der externen Endpunkte in der Konfiguration der Integration ein.',
     es: 'Introduzca el token de los endpoints externos en la configuración de la integración.',
   },
+  ambiguous: {
+    en: 'Several endpoints have this name: enter the key of the external endpoint.',
+    fr: "Plusieurs points d'accès portent ce nom : saisissez la clé du point d'accès externe.",
+    de: 'Mehrere Endpunkte tragen diesen Namen: Gib den Schlüssel des externen Endpunkts ein.',
+    es: 'Varios endpoints tienen este nombre: introduzca la clave del endpoint externo.',
+  },
   noKey: {
     en: 'Enter the key of the external endpoint, e.g. backups_nightly-job.',
     fr: "Saisissez la clé du point d'accès externe, ex. backups_nightly-job.",

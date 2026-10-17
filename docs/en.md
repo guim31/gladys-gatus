@@ -81,7 +81,7 @@ The "Gatus" device:
 The **Gatus** widget shows three tiles (endpoints down, up, average uptime
 over 24 hours) and a list: with ten endpoints or fewer, one row per endpoint,
 the ones down first, with their group, response time and uptime; beyond, one
-row per Gatus group ("1 down / 8"). In its settings, choose a group, or
+row per Gatus group ("Down: 1 / 8"). In its settings, choose a group, or
 endpoints added to Gladys. The **Refresh** button reads Gatus at once.
 
 ## Scenes

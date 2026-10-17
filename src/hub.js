@@ -56,6 +56,11 @@ export const HUB_TIMINGS = {
   heartbeatMs: 12 * 3600_000,
   // A scene action reads Gatus again when the last read is older.
   freshMs: 15_000,
+  // Gatus caches its statuses answer for 10 seconds: a result pushed to an
+  // external endpoint is read this long after the push, not at once.
+  afterPushMs: 11_000,
+  // An endpoint missing from the answers of Gatus is forgotten after this.
+  forgetMs: 24 * 3600_000,
 };
 
 const MAX_TRANSPORTS_PER_REQUEST = 100;
@@ -82,6 +87,15 @@ export function stateFrom(results, threshold, previous) {
   }
   // A failure, not yet enough of them: the state stays.
   return previous ?? (results.some((result) => result.success) ? 'up' : 'unknown');
+}
+
+/** When the failures at the end of the results started, null when unknown. */
+export function failingSince(results) {
+  let since = null;
+  for (let i = results.length - 1; i >= 0 && !results[i].success; i -= 1) {
+    since = results[i].time ?? since;
+  }
+  return since;
 }
 
 /** What failed in the last result: the failed conditions, else the errors. */
@@ -160,6 +174,11 @@ export class GatusHub {
     this.config = config;
     const signature = JSON.stringify([config.url, config.username, config.password]);
     if (signature !== this.signature) {
+      if (this.signature !== null && JSON.parse(this.signature)[0] !== config.url) {
+        // Another Gatus: the states saved for the previous one mean nothing.
+        this.saved.endpoints = {};
+        this.store.save(this.saved);
+      }
       this.signature = signature;
       this.client = config.url
         ? new GatusClient({
@@ -197,7 +216,8 @@ export class GatusHub {
     await this.store.flush();
   }
 
-  schedulePoll() {
+  /** The next read by the timer, after `delayMs` (the refresh interval by default). */
+  schedulePoll(delayMs = this.config.pollIntervalMs) {
     clearTimeout(this.pollTimer);
     if (!this.timersEnabled || this.stopped || !this.client) {
       return;
@@ -210,7 +230,7 @@ export class GatusHub {
         this.problems.fail('poll', `Poll failed: ${err.message}`, 'error');
       }
       this.schedulePoll();
-    }, this.config.pollIntervalMs);
+    }, delayMs);
   }
 
   // --- Reading Gatus -----------------------------------------------------------
@@ -262,7 +282,12 @@ export class GatusHub {
       return false;
     }
     const uptimesChanged = await this.readUptimes(client, endpoints);
-    return client === this.client && ((await this.applySuccess(endpoints)) || uptimesChanged);
+    // Checked once more after the last await: applySuccess changes the state
+    // before its first await, so a read of a previous client never lands.
+    if (client !== this.client) {
+      return false;
+    }
+    return (await this.applySuccess(endpoints)) || uptimesChanged;
   }
 
   /** The uptimes of every endpoint, every `uptimeEveryMs`. */
@@ -317,8 +342,11 @@ export class GatusHub {
     this.error = null;
     this.readAt = this.now();
 
+    // Everything below up to the events is synchronous: a concurrent read
+    // (a new configuration) cannot interleave with it.
     const next = new Map();
     const stateChanged = new Set();
+    const events = [];
     let dirty = false;
     for (const endpoint of endpoints) {
       if (next.has(endpoint.id)) {
@@ -342,15 +370,24 @@ export class GatusHub {
       if (previous && previous.state !== endpoint.state) {
         stateChanged.add(endpoint.id);
       }
-      dirty = (await this.transition(endpoint)) || dirty;
+      dirty = this.transition(endpoint, events) || dirty;
     }
     if ([...this.endpoints.keys()].some((id) => !next.has(id))) {
       widgetChanged = true; // an endpoint removed from the Gatus configuration
     }
     this.endpoints = next;
-    // An endpoint removed from Gatus is forgotten.
-    for (const id of Object.keys(this.saved.endpoints)) {
-      if (!next.has(id)) {
+    // An endpoint missing from the answer is forgotten after a day only:
+    // after a restart, Gatus (in-memory storage) lists an endpoint once it has
+    // a result again, and its outage must still end with "is back up".
+    const now = this.now();
+    for (const [id, saved] of Object.entries(this.saved.endpoints)) {
+      if (next.has(id)) {
+        continue;
+      }
+      if (saved.missingSince === undefined) {
+        saved.missingSince = now;
+        dirty = true;
+      } else if (now - saved.missingSince >= this.timings.forgetMs) {
         delete this.saved.endpoints[id];
         dirty = true;
       }
@@ -358,6 +395,9 @@ export class GatusHub {
     // Written only when something changed: no wear of the SD card at every read.
     if (dirty) {
       this.store.save(this.saved);
+    }
+    for (const [key, endpoint, extra] of events) {
+      await this.fire(key, endpoint, extra);
     }
     await this.publishStates({ changed: stateChanged });
     return widgetChanged;
@@ -374,27 +414,37 @@ export class GatusHub {
   }
 
   /**
-   * Compare an endpoint with its last saved state; fire the scene events.
+   * Compare an endpoint with its last saved state; queue the scene events.
+   * @param {object} endpoint with its new `state`
+   * @param {Array} events where the events to fire are pushed
    * @returns {boolean} whether the saved state changed
    */
-  async transition(endpoint) {
+  transition(endpoint, events) {
     const previous = this.saved.endpoints[endpoint.id];
     const { state } = endpoint;
+    if (previous?.missingSince !== undefined) {
+      delete previous.missingSince;
+      if (state === 'unknown' || previous.state === state) {
+        return true;
+      }
+    }
     if (state === 'unknown' || previous?.state === state) {
       return false;
     }
     const now = this.now();
-    this.saved.endpoints[endpoint.id] = { state, since: now };
+    // An outage starts at its first failed result, when Gatus gave it.
+    const since = state === 'down' ? Math.min(now, failingSince(endpoint.results) ?? now) : now;
+    this.saved.endpoints[endpoint.id] = { state, since };
     if (!previous) {
       return true; // first sight: no event
     }
     if (state === 'down') {
       logger.info(`${endpoint.name} is down`);
-      await this.fire(TRIGGERS.DOWN, endpoint, { error: failureOf(endpoint) });
+      events.push([TRIGGERS.DOWN, endpoint, { error: failureOf(endpoint) }]);
     } else if (state === 'up') {
       const minutes = Math.max(0, Math.round((now - previous.since) / 60_000));
       logger.info(`${endpoint.name} is up again after ${minutes} min`);
-      await this.fire(TRIGGERS.UP, endpoint, { downtime_minutes: minutes });
+      events.push([TRIGGERS.UP, endpoint, { downtime_minutes: minutes }]);
     }
     return true;
   }
@@ -498,7 +548,9 @@ export class GatusHub {
     }
     const now = this.now();
     const states = [];
+    let index = -1;
     for (const endpoint of this.endpoints.values()) {
+      index += 1;
       const externalId = endpointIds(this.gladys, endpoint.id).device;
       if (!this.isCreated(externalId)) {
         continue; // Gladys drops the states of a device not added
@@ -508,7 +560,12 @@ export class GatusHub {
         !this.volatileAt.has(endpoint.id) ||
         now - this.volatileAt.get(endpoint.id) >= this.timings.volatileEveryMs;
       if (volatileDue) {
-        this.volatileAt.set(endpoint.id, now);
+        // Spread over the period: a fifth of the endpoints come due each
+        // time, not all of them at once.
+        const spread = this.volatileAt.has(endpoint.id)
+          ? 0
+          : ((index % 5) * this.timings.volatileEveryMs) / 5;
+        this.volatileAt.set(endpoint.id, now - spread);
       }
       for (const { key, ...state } of endpointValues(this.gladys, this.view(endpoint))) {
         if (volatileDue || !VOLATILE.has(key)) {
@@ -618,8 +675,9 @@ export class GatusHub {
   }
 
   /**
-   * Push a result to an external endpoint, then read Gatus again. `target` is
-   * its key (`group_name`), or its name as Gatus shows it.
+   * Push a result to an external endpoint; the timer reads it once the cache
+   * of Gatus has expired. `target` is its key (`group_name`), or its name as
+   * Gatus shows it.
    */
   async pushExternal(target, { success, error = '' }) {
     const language = this.config.language;
@@ -634,21 +692,23 @@ export class GatusHub {
       throw new Error(pick(ACTION_TEXT.noKey, language));
     }
     const lower = typed.toLowerCase();
-    const known = [...this.endpoints.values()].find(
+    const all = [...this.endpoints.values()];
+    const byName = all.filter(
       (endpoint) =>
-        endpoint.key === typed ||
         endpoint.name.toLowerCase() === lower ||
         `${endpoint.group}/${endpoint.name}`.toLowerCase() === lower,
     );
-    const key = known?.key ?? typed;
+    if (!all.some((endpoint) => endpoint.key === typed) && byName.length > 1) {
+      throw new Error(pick(ACTION_TEXT.ambiguous, language));
+    }
+    const key = all.some((endpoint) => endpoint.key === typed) ? typed : (byName[0]?.key ?? typed);
     try {
       await this.client.pushExternal(key, this.config.externalToken, { success, error });
     } catch (err) {
       throw err instanceof GatusError ? new Error(pick(ERROR_TEXT[err.kind], language)) : err;
     }
     logger.info(`Result pushed to ${key}: ${success ? 'success' : 'failure'}`);
-    await this.polling?.catch(() => {});
-    await this.pollNow();
+    this.schedulePoll(this.timings.afterPushMs);
   }
 
   /** "Test the connection": read Gatus now, one line. */

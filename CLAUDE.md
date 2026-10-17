@@ -231,6 +231,15 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
   résultat. La route n'est pas soumise à `security.basic`.
 - **Authentification** : `security.basic` → en-tête `Basic` ; OIDC → 401 sur l'API, non pris en
   charge (pas de navigateur dans le conteneur), dit dans le message d'erreur.
+- **Cache de 10 s** sur `statuses` (vérifié : un résultat poussé n'apparaît qu'après ~10 s) :
+  après « Envoyer un résultat », le minuteur relit Gatus 11 s plus tard, pas tout de suite.
+- **Redémarrage de Gatus** (stockage en mémoire par défaut) : un point d'accès ne revient dans
+  `statuses` qu'avec son premier résultat. Un point d'accès absent garde donc son état sauvegardé
+  (`missingSince`) et n'est oublié qu'au bout de 24 h, sinon son « est rétabli » se perdrait.
+- Changement d'adresse de Gatus : l'état sauvegardé est vidé (des clés identiques sur l'autre
+  serveur ne sont pas la même chose).
+- Les fonctionnalités « volatiles » (temps de réponse, disponibilités) sont étalées : un
+  cinquième des points d'accès à chaque fois, pour rester loin des 300 états par minute.
 - Pas de transition depuis « inconnu » : le premier résultat d'un point d'accès fixe son état
   sans événement.
 

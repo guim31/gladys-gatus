@@ -85,9 +85,14 @@ export const NAMES = {
 export const MAX_RESPONSE_TIME_MS = 60_000;
 export const MAX_ENDPOINTS = 10_000;
 
-// The response time changes at every check: published at most every few
-// minutes (src/hub.js), at once with a change of state.
-export const VOLATILE = new Set([FEATURE_KEYS.RESPONSE_TIME]);
+// The response time changes at every check, the uptimes at every reading:
+// published at most every few minutes (src/hub.js), at once with a change of
+// state or when the device is added.
+export const VOLATILE = new Set([
+  FEATURE_KEYS.RESPONSE_TIME,
+  FEATURE_KEYS.UPTIME_24H,
+  FEATURE_KEYS.UPTIME_7D,
+]);
 
 export const endpointIds = (gladys, id) => gladys.externalIds(ENDPOINT_TYPE, id);
 export const instanceIds = (gladys) => gladys.externalIds(INSTANCE_TYPE, INSTANCE_ID);

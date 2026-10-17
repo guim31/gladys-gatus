@@ -24,7 +24,10 @@ export const PUSH_RESULTS = Object.freeze({ SUCCESS: 'success', FAILURE: 'failur
 
 export const SCENE_ACTIONS = {
   async get_endpoint_status(hub, { fields = {} }) {
-    hub.assertReadable();
+    // An error of the last reading is not final: read again first.
+    if (!hub.client) {
+      hub.assertReadable();
+    }
     await hub.refreshIfStale();
     hub.assertReadable();
     const language = hub.config.language;
@@ -56,7 +59,10 @@ export const SCENE_ACTIONS = {
   },
 
   async count_down_endpoints(hub, { fields = {} }) {
-    hub.assertReadable();
+    // An error of the last reading is not final: read again first.
+    if (!hub.client) {
+      hub.assertReadable();
+    }
     await hub.refreshIfStale();
     hub.assertReadable();
     const group = typeof fields.group === 'string' ? fields.group.trim().toLowerCase() : '';
