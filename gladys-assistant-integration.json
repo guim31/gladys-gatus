@@ -1,177 +1,749 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Gatus",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Your Gatus endpoints in Gladys: up or down, response time, uptime, and scenes when one goes down.",
+    "fr": "Vos points d'accès Gatus dans Gladys : état, temps de réponse, disponibilité, scènes si panne.",
+    "de": "Deine Gatus-Endpunkte in Gladys: Status, Antwortzeit, Verfügbarkeit und Szenen bei Ausfall.",
+    "es": "Sus endpoints de Gatus en Gladys: estado, tiempo de respuesta, disponibilidad y escenas si uno cae."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-gatus:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-gatus/main/cover.png",
+  "categories": ["network"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Gatus",
+        "fr": "Votre Gatus",
+        "de": "Dein Gatus",
+        "es": "Su Gatus"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Enter the address of your Gatus (the one of its status page). Then add the endpoints to follow from the Discover tab: Gladys reads Gatus, it does not check your services itself.",
+        "fr": "Saisissez l'adresse de votre Gatus (celle de sa page de statut). Ajoutez ensuite les points d'accès à suivre depuis l'onglet Découverte : Gladys lit Gatus, elle ne teste pas vos services elle-même.",
+        "de": "Gib die Adresse deines Gatus ein (die seiner Statusseite). Lege dann die zu verfolgenden Endpunkte im Tab „Entdecken“ an: Gladys liest Gatus, sie prüft deine Dienste nicht selbst.",
+        "es": "Introduzca la dirección de su Gatus (la de su página de estado). Después añada los endpoints que desea seguir desde la pestaña Descubrir: Gladys lee Gatus, no comprueba sus servicios por sí misma."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-gatus/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Einrichtungsanleitung",
+            "es": "Guía de instalación"
+          }
+        },
+        {
+          "url": "https://github.com/TwiN/gatus#api",
+          "label": {
+            "en": "Gatus API",
+            "fr": "API de Gatus",
+            "de": "Gatus-API",
+            "es": "API de Gatus"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "url",
+      "type": "string",
+      "label": {
+        "en": "Gatus address",
+        "fr": "Adresse de Gatus",
+        "de": "Gatus-Adresse",
+        "es": "Dirección de Gatus"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "Address and port of the Gatus web interface (8080 by default).",
+        "fr": "Adresse et port de l'interface web de Gatus (8080 par défaut).",
+        "de": "Adresse und Port der Weboberfläche von Gatus (standardmäßig 8080).",
+        "es": "Dirección y puerto de la interfaz web de Gatus (8080 por defecto)."
+      },
+      "placeholder": {
+        "en": "e.g. http://192.168.1.2:8080",
+        "fr": "ex. http://192.168.1.2:8080",
+        "de": "z. B. http://192.168.1.2:8080",
+        "es": "p. ej. http://192.168.1.2:8080"
+      },
+      "required": true
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "username",
+      "type": "string",
+      "label": {
+        "en": "User (optional)",
+        "fr": "Utilisateur (facultatif)",
+        "de": "Benutzer (optional)",
+        "es": "Usuario (opcional)"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Only if Gatus is protected by a basic login (security.basic).",
+        "fr": "Seulement si Gatus est protégé par un identifiant simple (security.basic).",
+        "de": "Nur wenn Gatus mit einer einfachen Anmeldung geschützt ist (security.basic).",
+        "es": "Solo si Gatus está protegido con un inicio de sesión básico (security.basic)."
+      },
+      "required": false
     },
     {
-      "key": "unit",
+      "key": "password",
+      "type": "secret",
+      "label": {
+        "en": "Password (optional)",
+        "fr": "Mot de passe (facultatif)",
+        "de": "Passwort (optional)",
+        "es": "Contraseña (opcional)"
+      },
+      "description": {
+        "en": "The password of this user, in clear (not its bcrypt hash).",
+        "fr": "Le mot de passe de cet utilisateur, en clair (pas son empreinte bcrypt).",
+        "de": "Das Passwort dieses Benutzers im Klartext (nicht sein bcrypt-Hash).",
+        "es": "La contraseña de este usuario, en claro (no su hash bcrypt)."
+      },
+      "required": false
+    },
+    {
+      "key": "external_token",
+      "type": "secret",
+      "label": {
+        "en": "External endpoints token (optional)",
+        "fr": "Jeton des points d'accès externes (facultatif)",
+        "de": "Token der externen Endpunkte (optional)",
+        "es": "Token de los endpoints externos (opcional)"
+      },
+      "description": {
+        "en": "The token of your Gatus external-endpoints, for the scene action that pushes a result.",
+        "fr": "Le jeton de vos external-endpoints Gatus, pour l'action de scène qui envoie un résultat.",
+        "de": "Das Token deiner Gatus-external-endpoints, für die Szenenaktion, die ein Ergebnis sendet.",
+        "es": "El token de sus external-endpoints de Gatus, para la acción de escena que envía un resultado."
+      },
+      "required": false
+    },
+    {
+      "key": "options",
+      "type": "section",
+      "label": {
+        "en": "Options",
+        "fr": "Options",
+        "de": "Optionen",
+        "es": "Opciones"
+      }
+    },
+    {
+      "key": "poll_interval",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often Gatus is read: one request each time, plus the uptimes every 5 minutes.",
+        "fr": "À quelle fréquence Gatus est lu : une requête à chaque fois, plus les disponibilités toutes les 5 minutes.",
+        "de": "Wie oft Gatus gelesen wird: jedes Mal eine Anfrage, dazu alle 5 Minuten die Verfügbarkeiten.",
+        "es": "Con qué frecuencia se lee Gatus: una petición cada vez, más las disponibilidades cada 5 minutos."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "60",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "failure_threshold",
+      "type": "select",
+      "label": {
+        "en": "Failed checks before down",
+        "fr": "Échecs avant la panne",
+        "de": "Fehlschläge bis zum Ausfall",
+        "es": "Fallos antes de la caída"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "How many failed checks of Gatus in a row make an endpoint down: more avoids false alarms, at the cost of a later alert.",
+        "fr": "Combien d'échecs consécutifs de Gatus font passer un point d'accès en panne : plus évite les fausses alertes, au prix d'une alerte plus tardive.",
+        "de": "Wie viele aufeinanderfolgende Fehlschläge in Gatus einen Endpunkt als ausgefallen markieren: mehr vermeidet Fehlalarme, meldet aber später.",
+        "es": "Cuántos fallos seguidos de Gatus marcan un endpoint como caído: más evita falsas alarmas, a costa de un aviso más tardío."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "2",
+      "options": [
+        {
+          "value": "1",
+          "label": {
+            "en": "1",
+            "fr": "1",
+            "de": "1",
+            "es": "1"
+          }
+        },
+        {
+          "value": "2",
+          "label": {
+            "en": "2",
+            "fr": "2",
+            "de": "2",
+            "es": "2"
+          }
+        },
+        {
+          "value": "3",
+          "label": {
+            "en": "3",
+            "fr": "3",
+            "de": "3",
+            "es": "3"
+          }
+        },
+        {
+          "value": "5",
+          "label": {
+            "en": "5",
+            "fr": "5",
+            "de": "5",
+            "es": "5"
+          }
+        }
+      ]
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the names",
+        "fr": "Langue des noms",
+        "de": "Sprache der Namen",
+        "es": "Idioma de los nombres"
+      },
+      "description": {
+        "en": "Language of the feature names (set when a device is added) and of the scene results.",
+        "fr": "Langue des noms des fonctionnalités (fixés à l'ajout d'un appareil) et des résultats de scène.",
+        "de": "Sprache der Funktionsnamen (beim Anlegen eines Geräts festgelegt) und der Szenen-Ergebnisse.",
+        "es": "Idioma de los nombres de las funciones (fijados al añadir un dispositivo) y de los resultados de escena."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "timeout_seconds": 60
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "endpoint_down",
+      "label": {
+        "en": "An endpoint goes down",
+        "fr": "Un point d'accès tombe en panne",
+        "de": "Ein Endpunkt fällt aus",
+        "es": "Un endpoint cae"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A Gatus endpoint fails its checks, as many times in a row as set in the configuration.",
+        "fr": "Un point d'accès Gatus échoue à ses tests, autant de fois de suite que réglé dans la configuration.",
+        "de": "Ein Gatus-Endpunkt besteht seine Prüfungen nicht, so oft hintereinander wie in der Konfiguration eingestellt.",
+        "es": "Un endpoint de Gatus falla sus comprobaciones, tantas veces seguidas como se configuró."
       },
       "fields": [
         {
           "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
+          "source": "devices",
+          "label": {
+            "en": "Endpoints (empty: any)",
+            "fr": "Points d'accès (vide : tous)",
+            "de": "Endpunkte (leer: alle)",
+            "es": "Endpoints (vacío: todos)"
+          }
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "endpoint",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Endpoint name",
+            "fr": "Nom du point d'accès",
+            "de": "Name des Endpunkts",
+            "es": "Nombre del endpoint"
+          }
+        },
+        {
+          "key": "group",
+          "type": "string",
+          "label": {
+            "en": "Group",
+            "fr": "Groupe",
+            "de": "Gruppe",
+            "es": "Grupo"
+          }
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "What failed",
+            "fr": "Ce qui a échoué",
+            "de": "Was fehlgeschlagen ist",
+            "es": "Lo que falló"
+          }
+        }
+      ]
+    },
+    {
+      "key": "endpoint_up",
+      "label": {
+        "en": "An endpoint is back up",
+        "fr": "Un point d'accès est rétabli",
+        "de": "Ein Endpunkt ist wieder online",
+        "es": "Un endpoint se restablece"
+      },
+      "description": {
+        "en": "An endpoint that was down passes its check again, with the length of the outage.",
+        "fr": "Un point d'accès en panne réussit de nouveau son test, avec la durée de la panne.",
+        "de": "Ein ausgefallener Endpunkt besteht seine Prüfung wieder, mit der Dauer des Ausfalls.",
+        "es": "Un endpoint caído vuelve a pasar su comprobación, con la duración de la caída."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Endpoints (empty: any)",
+            "fr": "Points d'accès (vide : tous)",
+            "de": "Endpunkte (leer: alle)",
+            "es": "Endpoints (vacío: todos)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "endpoint",
+          "type": "string",
+          "label": {
+            "en": "Endpoint name",
+            "fr": "Nom du point d'accès",
+            "de": "Name des Endpunkts",
+            "es": "Nombre del endpoint"
+          }
+        },
+        {
+          "key": "group",
+          "type": "string",
+          "label": {
+            "en": "Group",
+            "fr": "Groupe",
+            "de": "Gruppe",
+            "es": "Grupo"
+          }
+        },
+        {
+          "key": "downtime_minutes",
+          "type": "number",
+          "label": {
+            "en": "Outage length (minutes)",
+            "fr": "Durée de la panne (minutes)",
+            "de": "Dauer des Ausfalls (Minuten)",
+            "es": "Duración de la caída (minutos)"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "get_endpoint_status",
+      "label": {
+        "en": "State of an endpoint",
+        "fr": "État d'un point d'accès",
+        "de": "Zustand eines Endpunkts",
+        "es": "Estado de un endpoint"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Reads the state of an endpoint for the next actions: online or not, response time, uptime, and a ready-made sentence.",
+        "fr": "Lit l'état d'un point d'accès pour les actions suivantes : en ligne ou non, temps de réponse, disponibilité, et une phrase toute prête.",
+        "de": "Liest den Zustand eines Endpunkts für die nächsten Aktionen: online oder nicht, Antwortzeit, Verfügbarkeit und einen fertigen Satz.",
+        "es": "Lee el estado de un endpoint para las siguientes acciones: en línea o no, tiempo de respuesta, disponibilidad y una frase lista."
+      },
+      "timeout_seconds": 30,
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "label": {
+            "en": "Endpoint",
+            "fr": "Point d'accès",
+            "de": "Endpunkt",
+            "es": "Endpoint"
+          },
           "required": true
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
+          "key": "online",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "Online",
+            "fr": "En ligne",
+            "de": "Online",
+            "es": "En línea"
+          }
+        },
+        {
+          "key": "state",
+          "type": "string",
+          "label": {
+            "en": "State",
+            "fr": "État",
+            "de": "Zustand",
+            "es": "Estado"
+          }
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Endpoint name",
+            "fr": "Nom du point d'accès",
+            "de": "Name des Endpunkts",
+            "es": "Nombre del endpoint"
+          }
+        },
+        {
+          "key": "group",
+          "type": "string",
+          "label": {
+            "en": "Group",
+            "fr": "Groupe",
+            "de": "Gruppe",
+            "es": "Grupo"
+          }
+        },
+        {
+          "key": "response_time",
+          "type": "number",
+          "label": {
+            "en": "Response time (ms)",
+            "fr": "Temps de réponse (ms)",
+            "de": "Antwortzeit (ms)",
+            "es": "Tiempo de respuesta (ms)"
+          }
+        },
+        {
+          "key": "uptime_24h",
+          "type": "number",
+          "label": {
+            "en": "Uptime 24 h (%)",
+            "fr": "Disponibilité 24 h (%)",
+            "de": "Verfügbarkeit 24 h (%)",
+            "es": "Disponibilidad 24 h (%)"
+          }
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "What failed",
+            "fr": "Ce qui a échoué",
+            "de": "Was fehlgeschlagen ist",
+            "es": "Lo que falló"
+          }
+        },
+        {
+          "key": "sentence",
+          "type": "string",
+          "label": {
+            "en": "Sentence",
+            "fr": "Phrase",
+            "de": "Satz",
+            "es": "Frase"
+          }
+        }
+      ]
+    },
+    {
+      "key": "count_down_endpoints",
+      "label": {
+        "en": "Count the endpoints down",
+        "fr": "Compter les points d'accès en panne",
+        "de": "Ausgefallene Endpunkte zählen",
+        "es": "Contar los endpoints caídos"
+      },
+      "description": {
+        "en": "Counts the endpoints down and in total, in Gatus or in one group, and lists the ones down, for a message.",
+        "fr": "Compte les points d'accès en panne et au total, dans Gatus ou un groupe, et liste ceux en panne, pour un message.",
+        "de": "Zählt die ausgefallenen und alle Endpunkte, in Gatus oder einer Gruppe, und listet die ausgefallenen auf.",
+        "es": "Cuenta los endpoints caídos y en total, en Gatus o en un grupo, y enumera los caídos, para un mensaje."
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "group",
+          "type": "string",
+          "label": {
+            "en": "Group (empty: all)",
+            "fr": "Groupe (vide : tous)",
+            "de": "Gruppe (leer: alle)",
+            "es": "Grupo (vacío: todos)"
+          },
+          "required": false
+        }
+      ],
+      "outputs": [
+        {
+          "key": "down",
+          "type": "number",
+          "label": {
+            "en": "Endpoints down",
+            "fr": "Points d'accès en panne",
+            "de": "Ausgefallene Endpunkte",
+            "es": "Endpoints caídos"
+          }
+        },
+        {
+          "key": "names",
+          "type": "string",
+          "label": {
+            "en": "Names of the endpoints down",
+            "fr": "Noms des points d'accès en panne",
+            "de": "Namen der ausgefallenen Endpunkte",
+            "es": "Nombres de los endpoints caídos"
+          }
+        },
+        {
+          "key": "total",
+          "type": "number",
+          "label": {
+            "en": "Endpoints in total",
+            "fr": "Points d'accès au total",
+            "de": "Endpunkte insgesamt",
+            "es": "Endpoints en total"
+          }
+        }
+      ]
+    },
+    {
+      "key": "push_external_result",
+      "label": {
+        "en": "Push a result to Gatus",
+        "fr": "Envoyer un résultat à Gatus",
+        "de": "Ergebnis an Gatus senden",
+        "es": "Enviar un resultado a Gatus"
+      },
+      "description": {
+        "en": "Reports a success or a failure to an external endpoint of Gatus, so that Gatus keeps the history and alerts.",
+        "fr": "Signale un succès ou un échec à un point d'accès externe de Gatus, qui en garde l'historique et alerte.",
+        "de": "Meldet einen Erfolg oder Fehlschlag an einen externen Endpunkt von Gatus, der den Verlauf speichert und alarmiert.",
+        "es": "Comunica un éxito o un fallo a un endpoint externo de Gatus, que guarda el historial y avisa."
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "endpoint",
+          "type": "string",
+          "label": {
+            "en": "External endpoint (key or name)",
+            "fr": "Point d'accès externe (clé ou nom)",
+            "de": "Externer Endpunkt (Schlüssel oder Name)",
+            "es": "Endpoint externo (clave o nombre)"
+          },
+          "placeholder": {
+            "en": "e.g. backups_nightly-job",
+            "fr": "ex. backups_nightly-job",
+            "de": "z. B. backups_nightly-job",
+            "es": "p. ej. backups_nightly-job"
+          },
+          "required": true
+        },
+        {
+          "key": "result",
+          "type": "select",
+          "label": {
+            "en": "Result",
+            "fr": "Résultat",
+            "de": "Ergebnis",
+            "es": "Resultado"
+          },
+          "required": true,
+          "options": [
+            {
+              "value": "success",
+              "label": {
+                "en": "Success",
+                "fr": "Succès",
+                "de": "Erfolg",
+                "es": "Éxito"
+              }
+            },
+            {
+              "value": "failure",
+              "label": {
+                "en": "Failure",
+                "fr": "Échec",
+                "de": "Fehlschlag",
+                "es": "Fallo"
+              }
+            }
+          ]
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "Error message (on failure)",
+            "fr": "Message d'erreur (en cas d'échec)",
+            "de": "Fehlermeldung (bei Fehlschlag)",
+            "es": "Mensaje de error (en caso de fallo)"
+          },
+          "required": false
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
+      "key": "gatus",
+      "label": {
+        "en": "Gatus",
+        "fr": "Gatus",
+        "de": "Gatus",
+        "es": "Gatus"
+      },
       "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+        "en": "Endpoints down first, by group, with response time and uptime.",
+        "fr": "Les points d'accès en panne d'abord, par groupe, avec temps de réponse et disponibilité.",
+        "de": "Ausgefallene Endpunkte zuerst, nach Gruppe, mit Antwortzeit und Verfügbarkeit.",
+        "es": "Primero los endpoints caídos, por grupo, con tiempo de respuesta y disponibilidad."
       },
       "icon": "activity",
-      "action_timeout_seconds": 15
+      "action_timeout_seconds": 30,
+      "settings": [
+        {
+          "key": "group",
+          "type": "string",
+          "label": {
+            "en": "Group (empty: all)",
+            "fr": "Groupe (vide : tous)",
+            "de": "Gruppe (leer: alle)",
+            "es": "Grupo (vacío: todos)"
+          },
+          "description": {
+            "en": "The name of a Gatus group, as on its status page.",
+            "fr": "Le nom d'un groupe Gatus, comme sur sa page de statut.",
+            "de": "Der Name einer Gatus-Gruppe, wie auf ihrer Statusseite.",
+            "es": "El nombre de un grupo de Gatus, como en su página de estado."
+          },
+          "required": false
+        },
+        {
+          "key": "endpoints",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Endpoints (empty: the group)",
+            "fr": "Points d'accès (vide : le groupe)",
+            "de": "Endpunkte (leer: die Gruppe)",
+            "es": "Endpoints (vacío: el grupo)"
+          },
+          "description": {
+            "en": "Chosen endpoints take precedence over the group. Only the devices added to Gladys can be chosen.",
+            "fr": "Les points d'accès choisis priment sur le groupe. Seuls les appareils ajoutés à Gladys peuvent être choisis.",
+            "de": "Gewählte Endpunkte haben Vorrang vor der Gruppe. Nur die in Gladys angelegten Geräte sind wählbar.",
+            "es": "Los endpoints elegidos prevalecen sobre el grupo. Solo se pueden elegir los dispositivos añadidos a Gladys."
+          },
+          "required": false
+        }
+      ]
     }
   ]
 }

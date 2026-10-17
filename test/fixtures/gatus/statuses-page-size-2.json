@@ -1,0 +1,124 @@
+[
+  {
+    "name": "broken",
+    "key": "_broken",
+    "results": [
+      {
+        "hostname": "gladys-test-gatus-nowhere.invalid",
+        "duration": 1353066,
+        "errors": [
+          "Get \"http://gladys-test-gatus-nowhere.invalid/\": dial tcp: lookup gladys-test-gatus-nowhere.invalid on 192.0.2.53:53: no such host"
+        ],
+        "conditionResults": [
+          {
+            "condition": "[STATUS] (0) == 200",
+            "success": false
+          }
+        ],
+        "success": false,
+        "timestamp": "2026-10-17T13:14:14.069317621Z"
+      },
+      {
+        "hostname": "gladys-test-gatus-nowhere.invalid",
+        "duration": 1303248,
+        "errors": [
+          "Get \"http://gladys-test-gatus-nowhere.invalid/\": dial tcp: lookup gladys-test-gatus-nowhere.invalid on 192.0.2.53:53: no such host"
+        ],
+        "conditionResults": [
+          {
+            "condition": "[STATUS] (0) == 200",
+            "success": false
+          }
+        ],
+        "success": false,
+        "timestamp": "2026-10-17T13:14:24.069264115Z"
+      }
+    ]
+  },
+  {
+    "name": "gladys-push",
+    "group": "ext",
+    "key": "ext_gladys-push",
+    "results": [
+      {
+        "duration": 12000000,
+        "success": true,
+        "timestamp": "2026-10-17T13:07:13.923728878Z"
+      }
+    ]
+  },
+  {
+    "name": "whoami-a",
+    "group": "lab",
+    "key": "lab_whoami-a",
+    "results": [
+      {
+        "status": 200,
+        "hostname": "gladys-test-gatus-whoami-a",
+        "duration": 488824,
+        "conditionResults": [
+          {
+            "condition": "[STATUS] == 200",
+            "success": true
+          },
+          {
+            "condition": "[RESPONSE_TIME] < 1000",
+            "success": true
+          }
+        ],
+        "success": true,
+        "timestamp": "2026-10-17T13:14:13.625917746Z"
+      },
+      {
+        "status": 200,
+        "hostname": "gladys-test-gatus-whoami-a",
+        "duration": 452187,
+        "conditionResults": [
+          {
+            "condition": "[STATUS] == 200",
+            "success": true
+          },
+          {
+            "condition": "[RESPONSE_TIME] < 1000",
+            "success": true
+          }
+        ],
+        "success": true,
+        "timestamp": "2026-10-17T13:14:23.625098441Z"
+      }
+    ]
+  },
+  {
+    "name": "whoami-b",
+    "group": "lab",
+    "key": "lab_whoami-b",
+    "results": [
+      {
+        "status": 200,
+        "hostname": "gladys-test-gatus-whoami-b",
+        "duration": 950147,
+        "conditionResults": [
+          {
+            "condition": "[STATUS] == 200",
+            "success": true
+          }
+        ],
+        "success": true,
+        "timestamp": "2026-10-17T13:14:13.846471965Z"
+      },
+      {
+        "status": 200,
+        "hostname": "gladys-test-gatus-whoami-b",
+        "duration": 843963,
+        "conditionResults": [
+          {
+            "condition": "[STATUS] == 200",
+            "success": true
+          }
+        ],
+        "success": true,
+        "timestamp": "2026-10-17T13:14:23.846502685Z"
+      }
+    ]
+  }
+]

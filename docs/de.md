@@ -1,0 +1,168 @@
+# Gatus
+
+[Gatus](https://github.com/TwiN/gatus) überwacht deine Dienste (Websites, APIs,
+DNS, Ports, Zertifikate) und zeigt sie auf einer Statusseite. Diese
+Integration bringt seine Endpunkte („endpoints“) in Gladys: Jeder wird ein
+Gerät mit Status, Antwortzeit und Verfügbarkeit, Szenen reagieren, wenn einer
+ausfällt oder zurückkommt, und ein Dashboard-Widget zeigt sie nach Gruppe.
+
+Gladys liest Gatus und prüft deine Dienste nicht selbst. Alles bleibt in
+deinem Netzwerk (keine Cloud).
+
+Getestet mit einem echten Gatus in Docker (Version vom 16. Oktober 2026):
+Endpunkte online, fehlerhaft und gestoppt, Gruppen, ein externer Endpunkt,
+einfache Anmeldung. Rückmeldungen sind willkommen in
+[den Issues](https://github.com/guim31/gladys-gatus/issues).
+
+## Was du brauchst
+
+- Gladys Assistant 5.1.0 oder neuer.
+- Ein Gatus, das von Gladys aus erreichbar ist, meist auf Port 8080.
+- Falls Gatus eine Anmeldung verlangt: Benutzer und Passwort seines
+  Abschnitts `security.basic`. Ein mit OIDC geschütztes Gatus wird nicht
+  unterstützt.
+- Um Ergebnisse aus Gladys zu senden (optional): ein externer Endpunkt in
+  Gatus und sein Token.
+
+## Erste Schritte
+
+### 1. Die Adresse von Gatus finden
+
+Es ist die Adresse seiner Statusseite, zum Beispiel
+`http://192.168.1.2:8080`. Eine aus dem Browser kopierte Adresse geht auch
+(`…/endpoints/core_api`): Die Integration behält nur ihren Anfang.
+
+### 2. Die Integration konfigurieren
+
+Öffne in Gladys die Integration und fülle aus:
+
+- **Gatus-Adresse**.
+- **Benutzer** und **Passwort**: nur wenn Gatus eine Anmeldung verlangt. Das
+  Passwort im Klartext, nicht der bcrypt-Hash aus der Gatus-Konfiguration.
+- **Token der externen Endpunkte**: nur für die Aktion „Ergebnis an Gatus
+  senden“.
+- **Aktualisierungsintervall**: 30 Sekunden bis 5 Minuten (standardmäßig
+  1 Minute). Jedes Mal eine Anfrage, dazu alle 5 Minuten zwei Anfragen pro
+  Endpunkt für die Verfügbarkeiten.
+- **Fehlschläge bis zum Ausfall**: wie viele aufeinanderfolgende
+  Fehlschläge in Gatus einen Endpunkt als ausgefallen markieren
+  (standardmäßig 2). 1 reagiert beim ersten Fehlschlag, wie die Gatus-Seite
+  es zeigt; mehr vermeidet Fehlalarme bei einem Dienst, der kurz hakt. Wähle
+  ein Aktualisierungsintervall nahe am Intervall deiner Gatus-Endpunkte,
+  damit kein Ergebnis verloren geht.
+- **Sprache der Namen**: Sprache der Funktionsnamen und der
+  Szenen-Ergebnisse (standardmäßig Französisch).
+
+Klicke dann auf **Verbindung testen**: Die Integration liest Gatus und zählt
+die Endpunkte.
+
+### 3. Die Endpunkte hinzufügen
+
+Öffne den Tab **Entdecken** der Integration: ein Gerät pro Gatus-Endpunkt und
+ein Gerät „Gatus“ für die ganze Instanz. Lege die an, denen du folgen willst.
+Die Szenen-Auslöser und das Widget funktionieren für alle Endpunkte,
+angelegt oder nicht.
+
+Ein in Gatus umbenannter oder in eine andere Gruppe verschobener Endpunkt
+bekommt einen neuen Schlüssel, also ein neues Gerät: Lösche das alte.
+
+## Die Geräte
+
+Jeder Endpunkt:
+
+- **Online**: ja, wenn die letzte Prüfung von Gatus erfolgreich war, nein,
+  wenn er ausgefallen ist (siehe „Fehlschläge bis zum Ausfall“). Grünes oder
+  rotes Abzeichen, eine Ja/Nein-Bedingung in Szenen.
+- **Antwortzeit**: die Dauer der letzten erfolgreichen Prüfung, in
+  Millisekunden. Höchstens alle 5 Minuten gesendet, sofort bei einer
+  Statusänderung.
+- **Verfügbarkeit 24 h** und **Verfügbarkeit 7 Tage**: der Anteil
+  erfolgreicher Prüfungen, von Gatus berechnet, in Prozent.
+
+Das Gerät „Gatus“:
+
+- **Ausgefallene Endpunkte** und **Endpunkte insgesamt**.
+
+## Dashboard
+
+Das Widget **Gatus** zeigt drei Kacheln (ausgefallene Endpunkte, online,
+durchschnittliche Verfügbarkeit über 24 Stunden) und eine Liste: bis zu zehn
+Endpunkte eine Zeile pro Endpunkt, die ausgefallenen zuerst, mit Gruppe,
+Antwortzeit und Verfügbarkeit; darüber eine Zeile pro Gatus-Gruppe
+(„1 ausgefallen / 8“). Wähle in seinen Einstellungen eine Gruppe oder in
+Gladys angelegte Endpunkte. Die Schaltfläche **Aktualisieren** liest Gatus
+sofort.
+
+## Szenen
+
+### Auslöser
+
+- **Ein Endpunkt fällt aus**: Ein Endpunkt besteht seine Prüfungen nicht, so
+  oft hintereinander wie in der Konfiguration eingestellt. Variablen: Name
+  des Endpunkts, Gruppe, was fehlgeschlagen ist (die fehlgeschlagenen
+  Bedingungen oder der Fehler).
+- **Ein Endpunkt ist wieder online**: Ein ausgefallener Endpunkt besteht
+  seine Prüfung wieder. Variablen: Name des Endpunkts, Gruppe, Dauer des
+  Ausfalls in Minuten.
+
+Beide lassen sich auf bestimmte Endpunkte beschränken. Beim ersten Lesen
+wird kein Ereignis gesendet: nur echte Änderungen. Ein Endpunkt, der während
+eines Neustarts von Gladys ausgefallen ist, wird trotzdem gemeldet, einmal.
+
+### Aktionen
+
+- **Zustand eines Endpunkts**: online oder nicht, Zustand in Worten,
+  Antwortzeit, Verfügbarkeit über 24 Stunden, was fehlgeschlagen ist, und ein
+  fertiger Satz wie „NAS: Ausgefallen, 97,5 % in 24 h. [STATUS] (502) ==
+  200“.
+- **Ausgefallene Endpunkte zählen**: wie viele ausgefallen sind und
+  insgesamt, in Gatus oder in einer Gruppe, und die Namen der ausgefallenen.
+- **Ergebnis an Gatus senden**: meldet einen Erfolg oder Fehlschlag (mit
+  seiner Meldung) an einen externen Endpunkt von Gatus, angegeben durch seinen
+  Schlüssel (`gruppe_name`, wie in der Adresse seiner Gatus-Seite) oder seinen
+  Namen. Gatus speichert den Verlauf und sendet seine eigenen Alarme. Der
+  externe Endpunkt wird in der Gatus-Konfiguration angelegt:
+
+```yaml
+external-endpoints:
+  - name: nightly-job
+    group: backups
+    token: 'ein-langes-zufaelliges-token'
+```
+
+Trage dasselbe Token in der Konfiguration der Integration ein (mehrere
+externe Endpunkte können es teilen).
+
+### Szenen-Ideen
+
+- **Ein Endpunkt fällt aus** → eine Nachricht mit dem Namen des Endpunkts
+  und dem, was fehlgeschlagen ist.
+- Jeden Abend **Ausgefallene Endpunkte zählen** → wenn mehr als null, eine
+  Nachricht mit den Namen.
+- Am Ende einer Gladys-Szene, die ein Backup oder eine eigene Prüfung macht,
+  **Ergebnis an Gatus senden**: Gatus zeigt sie wie jeden anderen Dienst und
+  alarmiert, wenn sie nicht mehr läuft.
+
+## Fehlerbehebung
+
+- **„Gatus antwortet nicht“**: Prüfe Adresse und Port vom Rechner von Gladys
+  aus und dass keine Firewall blockiert.
+- **„Gatus verlangt eine Anmeldung“**: Trage Benutzer und Passwort des
+  Abschnitts `security.basic` ein. Mit OIDC lässt sich die API nicht lesen.
+- **„Die Adresse leitet um“**: Gib direkt die `https://`-Adresse ein.
+- **„Zertifikat abgelehnt“**: Ein selbstsigniertes Zertifikat wird nicht
+  akzeptiert; nutze in deinem Netzwerk die `http://`-Adresse.
+- **Ein Endpunkt bleibt ohne Wert**: Er hat noch kein Ergebnis (ein neuer
+  Endpunkt oder ein externer Endpunkt, der nie eines bekommen hat).
+- **„Kein externer Endpunkt mit diesem Schlüssel“**: Der Schlüssel ist
+  `gruppe_name`, kleingeschrieben, Leerzeichen und Punkte durch Bindestriche
+  ersetzt; ein Endpunkt erscheint in Gatus erst nach seinem ersten Ergebnis.
+
+## Grenzen
+
+- Gladys liest Gatus im gewählten Intervall: Ein Ausfall, der kürzer ist als
+  dieses oder als die Schwelle, kann unbemerkt bleiben.
+- Die Verfügbarkeiten kommen von Gatus, das sie pro Stunde zählt.
+- Suites, Ankündigungen und Vorfälle von Gatus werden nicht gelesen.
+- Ein mit OIDC geschütztes Gatus wird nicht unterstützt.
+- Nicht mit Gatus oder seinem Autor verbunden.
