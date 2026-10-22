@@ -8,8 +8,8 @@
     "de": "Deine Gatus-Endpunkte in Gladys: Status, Antwortzeit, Verfügbarkeit und Szenen bei Ausfall.",
     "es": "Sus endpoints de Gatus en Gladys: estado, tiempo de respuesta, disponibilidad y escenas si uno cae."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/guim31/gladys-gatus:1.0.0",
+  "version": "1.0.1",
+  "docker_image": "ghcr.io/guim31/gladys-gatus:1.0.1",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-gatus/main/cover.png",
   "categories": ["network"],

@@ -1,6 +1,6 @@
 {
   "name": "gladys-gatus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Gatus endpoint monitoring in Gladys Assistant: one device per endpoint, scene triggers when one goes down or comes back, a status widget.",
   "type": "module",
